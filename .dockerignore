@@ -1,0 +1,5 @@
+**
+!pyproject.toml
+!src/
+!src/tp2v/
+!src/tp2v/*.py

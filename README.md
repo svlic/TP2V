@@ -19,9 +19,76 @@
 
 参考：T4BY 的 `reader.py`、`gateway.py` 和 `models.py`（参考版本 `d4b512e`）。T4BY 可用 Git 历史中未找到频道搜索实现；`search` 模式参考本机 TPBY 的带引号搜索与本地校验方式，但**不引入**它的“编号”字段限制、最多两组对象或媒体分类规则。
 
-## 安装与运行
+## 部署前提
 
 需要 Python 3.11+，一个 Telegram **用户账号**（不是 Bot Token）。该账号应已加入所有 A / SOURCE，可读取历史和搜索，并具有向各 B 发消息的权限。SOURCE 的内容保护可能禁止原生转发，本程序不会绕过保护。
+
+Docker 部署不需要在宿主机安装 Python，只需 Docker Engine 和 Docker Compose 插件。
+
+## Docker Compose 部署（推荐）
+
+在项目目录准备配置和凭据：
+
+```bash copy Copy Docker Setup
+cp config.example.toml config.toml
+cp .env.example .env
+mkdir -p data
+```
+
+编辑 `.env`，填写自己的 `TP2V_API_ID` / `TP2V_API_HASH`；编辑 `config.toml` 中的频道和路由。保留 `session = "data/tp2v"`、`database = "data/state.sqlite3"`，它们在容器内对应 `/app/data/`，持久保存在宿主机 `./data/`。如需自定义路径，必须确保它们仍位于挂载的数据目录内。`.env`、`config.toml` 和 `data/` 均已被 Git 忽略，不要上传凭据或 session。
+
+拉取镜像并校验配置（不连接 Telegram）：
+
+```bash copy Copy Docker Config Check
+docker compose pull
+docker compose run --rm tp2v --config /app/config.toml --check-config
+```
+
+首次登录必须在交互终端运行，依次输入手机号、验证码和可能的两步验证密码：
+
+```bash copy Copy Docker Login
+docker compose run --rm tp2v
+```
+
+看到 `TP2V started` 后按 Ctrl+C 结束首次运行，session 已保存在 `./data/`。再启动后台服务：
+
+```bash copy Copy Docker Start
+docker compose up -d --no-build
+docker compose logs -f --tail=100 tp2v
+```
+
+退出日志查看用 Ctrl+C，不会停止后台服务。服务配置了 `unless-stopped` 重启策略。不要在后台服务运行时再次执行登录命令，避免多个进程共用 session / SQLite。
+
+更新镜像、重启和停止：
+
+```bash copy Copy Docker Update
+docker compose pull
+docker compose up -d --no-build
+# 修改 config.toml 后重启：
+docker compose restart tp2v
+# 停止并移除容器，保留宿主机 data/：
+docker compose down
+```
+
+备份时先停止服务，再备份整个 `data/`（包含登录凭据和去重数据库），以及 `config.toml` / `.env`；请限制备份的访问权限。无需映射任何入站端口。
+
+### 镜像与本地构建
+
+默认镜像为 `ghcr.io/svlic/tp2v:latest`，同一个标签支持 `linux/amd64` 和 `linux/arm64`（64 位 ARM），Docker 自动选择宿主机架构。可在 `.env` 设置 `TP2V_IMAGE=ghcr.io/svlic/tp2v:0.1.0` 固定已发布版本。
+
+GitHub Actions 在推送 `main`、推送 `v*` 版本标签或手动触发时构建并发布到当前仓库的 GHCR 地址；PR 只构建、不发布。主分支生成 `latest`，例如 `v0.1.0` 生成 `0.1.0`，同时生成 `sha-...` 标签。首次发布后，如需匿名拉取，请在 GitHub Packages 中将包可见性设置为 Public；私有包需先使用具有 `read:packages` 权限的令牌执行 `docker login ghcr.io`。Fork 后请通过 `.env` 中的 `TP2V_IMAGE` 指向自己的镜像地址。
+
+镜像尚未发布或希望从本地源码部署时，可替代上述拉取步骤：
+
+```bash copy Copy Docker Build
+docker compose build --pull
+docker compose run --rm --pull never tp2v --config /app/config.toml --check-config
+docker compose run --rm --pull never tp2v
+# 首次登录成功后 Ctrl+C，再后台启动：
+docker compose up -d --no-build --pull never
+```
+
+## Python 直接安装与运行
 
 ```bash copy Copy Installation
 python3 -m venv .venv

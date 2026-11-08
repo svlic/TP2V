@@ -1,0 +1,17 @@
+services:
+  tp2v:
+    image: ${TP2V_IMAGE:-ghcr.io/svlic/tp2v:latest}
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      TP2V_API_ID: ${TP2V_API_ID:?Set TP2V_API_ID in .env}
+      TP2V_API_HASH: ${TP2V_API_HASH:?Set TP2V_API_HASH in .env}
+    volumes:
+      - type: bind
+        source: ./config.toml
+        target: /app/config.toml
+        read_only: true
+        bind:
+          create_host_path: false
+      - ./data:/app/data
