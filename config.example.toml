@@ -1,0 +1,19 @@
+# API 凭据从环境变量 TP2V_API_ID / TP2V_API_HASH 读取。
+session = "data/tp2v"
+database = "data/state.sqlite3"
+
+[[routes]]
+name = "group-nearby"
+a = -1001111111111
+source = -1002222222222
+b = -1003333333333
+mode = "nearby"
+window = 5
+
+[[routes]]
+name = "group-search"
+a = "input_channel"
+source = "source_channel"
+b = "output_channel"
+mode = "search"
+search_limit = 100
